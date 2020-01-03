@@ -1,0 +1,17 @@
+<html>
+    <head>
+
+    </head>
+    <body>
+        <script type="text/javascript">
+        window.nx.addEventListener("message", function(e){
+            alert(e.data);
+        });
+        function sendMessage(){
+            window.nx.sendMessage(document.getElementById("sBox").value);
+        }
+        </script>
+        <h1>Hello world</h1>
+        <label>Message:<input type="text" id="sBox"/><button onclick="sendMessage()">Send</button></label>
+    </body>
+</html>
