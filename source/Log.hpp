@@ -1,4 +1,5 @@
 #include <string>
+#include <vector>
 #include <mutex>
 #include <switch.h>
 #pragma once
@@ -11,6 +12,7 @@ public:
     Logger();
     ~Logger();
     void print(std::string text);
+    void printBuffer(std::vector<u8> buffer);
 };
 
-static Logger g_Logger{};
+extern Logger g_Logger;

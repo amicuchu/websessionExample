@@ -1,5 +1,6 @@
 #include "WebSession.hpp"
 #include "Log.hpp"
+#include <cstring>
 
 struct PACKED SessionMessageHeader{
     unsigned int messageID;
@@ -78,9 +79,13 @@ void WebSession::staticThreadExec(void* arg){
 }
 
 void WebSession::threadExec(){
+    svcSleepThread(5000000000);
     g_Logger.print("Web session thread");
     fillPopInteractiveOutDataEvent(appletHolder);
     g_Logger.print("PopInteractiveOutDataEvent getted");
+
+    calibrateWhateverValue();
+    g_Logger.print("Whatever value obtained");
 
     while(true){
         s32 selectedWaiter;
@@ -126,6 +131,75 @@ void WebSession::threadExec(){
             break;
         }
     }
+}
+
+void WebSession::calibrateWhateverValue(){
+    AppletStorage storage;
+    {
+        g_Logger.print("Calibration send message");
+        char string[] = "SYNC";
+        std::vector<u8> message(sizeof(SessionMessageHeader) + sizeof(string));
+
+        auto header = reinterpret_cast<SessionMessageHeader*>(message.data());
+        header->messageID = 0x0;
+        header->pad = 0;
+        header->size = sizeof(string);
+
+        char *data = reinterpret_cast<char*>(message.data() + sizeof(SessionMessageHeader));
+        memcpy(data, &string, sizeof(string));
+
+        Result rc = appletCreateStorage(&storage, message.size());
+        if(R_FAILED(rc)){
+            throw rc;
+        }
+
+        rc = appletStorageWrite(&storage, 0, message.data(), message.size());
+        if(R_FAILED(rc)){
+            appletStorageClose(&storage);
+            throw rc;
+        }
+
+        rc = appletHolderPushInteractiveInData(appletHolder, &storage);
+        if(R_FAILED(rc)){
+            appletStorageClose(&storage);
+            throw rc;
+        }
+    }
+    
+    g_Logger.print("Calibration send ended");
+
+    {
+        appletHolderWaitInteractiveOut(appletHolder);
+
+        g_Logger.print("Calibration receive");
+
+        Result rc = appletHolderPopInteractiveOutData(this->appletHolder, &storage);
+        if(R_FAILED(rc)){
+            throw rc;
+        }
+
+        s64 size;
+        rc = appletStorageGetSize(&storage, &size);
+        if(R_FAILED(rc)){
+            appletStorageClose(&storage);
+            throw rc;
+        }
+
+        std::vector<u8> message(size);
+        rc = appletStorageRead(&storage, 0, message.data(), size);
+        if(R_FAILED(rc)){
+            appletStorageClose(&storage);
+            throw rc;
+        }
+
+        g_Logger.print("Ack buffer:");
+        g_Logger.printBuffer(message);
+
+        AckData* data = reinterpret_cast<AckData*>(message.data() + sizeof(struct SessionMessageHeader));
+        theWhateverValue = data->whatever;
+        g_Logger.print("The whatever value is " + std::to_string(theWhateverValue));
+    }
+    
 }
 
 void WebSession::processIncomingMessage(){
@@ -176,8 +250,7 @@ void WebSession::processIncomingMessage(){
 void WebSession::ackIncomingMessage(size_t storageSize){
     g_Logger.print("WebSession: Ack data received");
     //Disable this part because crashes
-    return;
-    std::vector<u8> message(sizeof(struct SessionMessageHeader) + sizeof(struct AckData));
+    std::vector<u8> message(sizeof(struct SessionMessageHeader) + sizeof(struct AckData) + 4);
     
     SessionMessageHeader* header = reinterpret_cast<SessionMessageHeader*>(message.data());
     header->messageID = 0x1000;
@@ -187,7 +260,11 @@ void WebSession::ackIncomingMessage(size_t storageSize){
     AckData* data = reinterpret_cast<AckData*>(message.data() + sizeof(struct SessionMessageHeader));
     data->ackedSize = storageSize;
     data->reserved = 0;
-    data->whatever = 0x21;
+    data->whatever = theWhateverValue;
+    *(message.end() - 1) = 0;
+    *(message.end() - 2) = 0;
+    *(message.end() - 3) = 0;
+    *(message.end() - 4) = 0;
 
     AppletStorage storage;
     Result rc;

@@ -53,6 +53,8 @@ extern "C"{
     }
 }
 
+Logger g_Logger{};
+
 int main(int argc, char* argv[])
 {
     Result rc=0;

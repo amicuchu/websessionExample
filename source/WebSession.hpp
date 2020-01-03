@@ -11,9 +11,11 @@ private:
         std::size_t lastMessageStorageSize;
         UEvent messageOnQueueEvent;
         Broadcast<std::vector<u8>> messageReceivedBroadcast;
+        u32 theWhateverValue;
 
         static void staticThreadExec(void *arg);
         void threadExec();
+        void calibrateWhateverValue();
         void processIncomingMessage();
         void processOutcomingMessage();
         void ackIncomingMessage(size_t storageSize);
