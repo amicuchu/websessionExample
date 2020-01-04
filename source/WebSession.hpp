@@ -18,13 +18,14 @@ private:
         void calibrateWhateverValue();
         void processIncomingMessage();
         void processOutcomingMessage();
-        void ackIncomingMessage(size_t storageSize);
+        void ackIncomingMessage(u32 storageSize);
 
 public:
         WebSession(AppletHolder* holder);
         ~WebSession();
 
-        void sendMessage(const std::vector<u8> data);
+        void sendMessage(const std::vector<u8> &&data);
+        void sendMessage(const std::vector<u8> &data);
         void startThread();
         void waitForThread();
 };
