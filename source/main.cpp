@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     WebCommonReply reply;
     WebExitReason exitReason;
 
-    webPageCreate(&config, "https://camitest.my.to/");
+    webPageCreate(&config, "https://amicuchu.github.io/websessionExample/index.html");
     g_Logger.print("Web config created");
     WebSession webSession(&config.holder);
 

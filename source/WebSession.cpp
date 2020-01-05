@@ -1,7 +1,6 @@
 #include "WebSession.hpp"
 #include "Log.hpp"
 #include <cstring>
-#include "span.hpp"
 
 struct PACKED SessionMessageHeader{
     unsigned int messageID;

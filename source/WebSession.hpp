@@ -6,7 +6,6 @@
 #include <switch.h>
 #include <memory>
 #include "WebSessionHandler.hpp"
-#include "Broadcast.hpp"
 
 class WebSessionHandler;
 
