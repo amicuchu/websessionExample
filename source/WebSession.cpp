@@ -32,8 +32,11 @@ void fillPopInteractiveOutDataEvent(AppletHolder *holder){
     
 }
 
-WebSession::WebSession(AppletHolder* holder){
+WebSession::WebSession(AppletHolder* holder)
+{
+    handlers = std::list<std::unique_ptr<WebSessionHandler>>();
     this->appletHolder = holder;
+    masterPointer = std::shared_ptr<WebSession>(this);
     Result rc = threadCreate(&this->thread, &WebSession::staticThreadExec, this, nullptr, 0x10000, 0x2C, -2);
     g_Logger.print("Thread created");
     if(R_FAILED(rc)){
@@ -48,11 +51,13 @@ WebSession::~WebSession(){
 }
 
 void WebSession::sendMessage(const std::vector<u8> &&data){
-    this->messagesToSend.push(data);
+    this->messagesToSend.push(std::forward<const std::vector<u8>>(data));
+    ueventSignal(&messageOnQueueEvent);
 }
 
-void WebSession::sendMessage(const std::vector<u8> &data){
-    this->messagesToSend.push(data);
+void WebSession::addHandler(std::unique_ptr<WebSessionHandler> handler){
+    handler->giveWebSession(std::weak_ptr<WebSession>(masterPointer));
+    handlers.push_back(std::move(handler));
 }
 
 void WebSession::startThread(){
@@ -226,6 +231,8 @@ void WebSession::processIncomingMessage(){
         throw rc;
     }
 
+    g_Logger.printBuffer(buffer);
+
     struct SessionMessageHeader* header = reinterpret_cast<struct SessionMessageHeader*>(buffer.data());
     if(header->messageID == 0x1000){
         //Ack
@@ -239,13 +246,17 @@ void WebSession::processIncomingMessage(){
         }
     }else if(header->messageID == 0){
         //Message to receive
-        std::vector<u8> data(buffer.cbegin() + sizeof(*header), buffer.cend());
-        this->messageReceivedBroadcast.broadcast(data);
+        std::vector<u8> data(buffer.cbegin() + sizeof(*header), buffer.cbegin() + sizeof(*header) + header->size);
+
+        g_Logger.print("WebSession: Broadcasting to handlers");
+
+        for(const auto& handler : handlers){
+            handler->handleMessage(data);
+        }
 
         std::string dataDec(reinterpret_cast<char*>(data.data()), data.size() - 1);
         g_Logger.print(dataDec);
 
-        this->messageReceivedBroadcast.broadcast(data);
         ackIncomingMessage(header->size);
     }
 
@@ -309,9 +320,11 @@ void WebSession::processOutcomingMessage(){
 
         struct SessionMessageHeader header {
             .messageID = 0x0,
-            .size = 0,
+            .size = static_cast<u32>(buffer.size()),
             .pad = 0
         };
+
+        g_Logger.printBuffer(buffer);
 
         AppletStorage storage;
         Result rc = appletCreateStorage(&storage, sizeof(header) + buffer.size());
@@ -329,12 +342,12 @@ void WebSession::processOutcomingMessage(){
             throw rc;
         }
 
-        rc = appletPushInteractiveOutData(&storage);
+        rc = appletHolderPushInteractiveInData(appletHolder, &storage);
         if(R_FAILED(rc)){
             appletStorageClose(&storage);
             throw rc;
         }
-        this->lastMessageStorageSize = buffer.size();
+        this->lastMessageStorageSize = sizeof(header) + buffer.size();
     }else{
         ueventClear(&this->messageOnQueueEvent);
     }

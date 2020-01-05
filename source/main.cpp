@@ -1,6 +1,8 @@
 #include <switch.h>
+#include <memory>
 #include "WebSession.hpp"
 #include "Log.hpp"
+#include "ExampleHandler.hpp"
 
 extern "C"{
     #include <memory.h>
@@ -87,9 +89,14 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    ExampleHandler exhand{};
+
     rc = webConfigSetWhitelist(&config, "^http*");
     if (R_SUCCEEDED(rc)) {
         g_Logger.print("TLV configured");
+
+        webSession.addHandler(std::unique_ptr<WebSessionHandler>(&exhand));
+
         webSession.startThread();
         consoleUpdate(NULL);
         rc = webConfigShow(&config, &reply);
